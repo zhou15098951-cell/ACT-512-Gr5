@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+  <!-- MindAR Image Tracking -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+
+      /* 防止手机双指操作时缩放整个网页 */
+      touch-action: none;
+    }
+
+    canvas {
+      touch-action: none;
+    }
+
+
+    /* =========================================================
+       1. 开始体验界面
+    ========================================================= */
+
+    #startScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+
+      width: 100%;
+      height: 100%;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      background: rgba(0, 0, 0, 0.47);
+
+      z-index: 9999;
+    }
+
+    #startButton {
+      padding: 16px 32px;
+      font-size: 20px;
+
+      border: none;
+      border-radius: 10px;
+
+      cursor: pointer;
+    }
+
+
+    /* =========================================================
+       2. 博物馆信息卡
+    ========================================================= */
+
+    #infoPanel {
+      display: none;
+
+      position: fixed;
+
+      left: 20px;
+      bottom: 25px;
+
+      max-width: 300px;
+
+      padding: 14px 18px;
+
+      background: rgba(0, 0, 0, 0.72);
+      color: white;
+
+      border-radius: 10px;
+
+      z-index: 5000;
+
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+
+    .objectTitle {
+      font-size: 19px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .objectInfo {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+
+    /* =========================================================
+       3. 开始探索提示
+    ========================================================= */
+
+    #explorePrompt {
+      display: none;
+
+      position: fixed;
+
+      left: 50%;
+      bottom: 30px;
+
+      transform: translateX(-50%);
+
+      width: 80%;
+      max-width: 360px;
+
+      padding: 15px 20px;
+
+      background: rgba(0, 0, 0, 0.82);
+      color: white;
+
+      border-radius: 12px;
+
+      text-align: center;
+
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+
+      z-index: 6000;
+    }
+
+    .exploreTitle {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .exploreText {
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0.9;
+    }
+
+    #exploreButton {
+      margin-top: 12px;
+
+      padding: 10px 24px;
+
+      font-size: 16px;
+
+      border: none;
+      border-radius: 8px;
+
+      cursor: pointer;
+    }
+
+
+    /* =========================================================
+       4. 动物纹样信息卡
+
+       点击黄色 Hotspot 后显示。
+    ========================================================= */
+
+    #hotspotInfo {
+      display: none;
+
+      position: fixed;
+
+      right: 20px;
+      bottom: 25px;
+
+      width: min(280px, calc(100vw - 40px));
+
+      padding: 14px 18px;
+
+      background: rgba(0, 0, 0, 0.84);
+      color: white;
+
+      border-radius: 10px;
+
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+
+      z-index: 7000;
+    }
+
+    #hotspotTitle {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    #hotspotText {
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0.92;
+    }
+  </style>
+</head>
+
+
+<body>
+
+  <!-- =========================================================
+       开始体验
+  ========================================================= -->
+
+  <div id="startScreen">
+    <button id="startButton">
+      开始体验
+    </button>
+  </div>
+
+
+  <!-- =========================================================
+       音频
+  ========================================================= -->
+
+  <audio
+    id="bgMusic"
+    src="./background_music.mp3"
+    preload="auto"
+    loop>
+  </audio>
+
+  <audio
+    id="narration"
+    src="./narration_voice.mp3"
+    preload="auto">
+  </audio>
+
+
+  <!-- =========================================================
+       博物馆信息卡
+  ========================================================= -->
+
+  <div id="infoPanel">
+
+    <div class="objectTitle">
+      安氏原角龙　Protoceratops andrewsi
+    </div>
+
+    <div class="objectInfo">
+      年代:晚白垩世 · 约 7500–7100 万年前<br>
+      分类:鸟臀目 · 原角龙科<br>
+      产地:蒙古国南部戈壁（牙道赫达组）；中国内蒙古亦有相关发现
+      体长：1.8–2.5 米　体重 约 180 公斤
+    </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       开始探索
+
+       中文讲解结束后出现。
+
+       点击按钮后：
+       1. 自动旋转停止
+       2. 开启拖动旋转 / 缩放
+       3. 显示 3 个动物纹样 Hotspots
+  ========================================================= -->
+
+  <div id="explorePrompt">
+
+    <div class="exploreTitle">
+      探索文物
+    </div>
+
+    <div class="exploreText">
+      拖动模型进行旋转，使用鼠标滚轮或双指捏合进行缩放。<br>
+      点击黄色标记，发现喙与颈盾两种特征。
+    </div>
+
+    <button id="exploreButton">
+      开始探索
+    </button>
+
+  </div>
+
+
+  <!-- =========================================================
+       动物纹样说明卡
+  ========================================================= -->
+
+  <div id="hotspotInfo">
+
+    <div id="hotspotTitle">
+      纹饰名称
+    </div>
+
+    <div id="hotspotText">
+      纹饰说明
+    </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       AR SCENE
+  ========================================================= -->
+
+  <a-scene
+    id="scene"
+    mindar-image="imageTargetSrc: ./targets.mind;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+
+    <!-- =======================================================
+         相机
+
+         这一版不再使用 A-Frame cursor/raycaster 点击 Hotspot。
+
+         原因：
+         我们同时需要：
+         - 单指/鼠标拖动旋转
+         - 双指缩放
+         - 点击 Hotspot
+
+         因此直接使用 THREE.Raycaster，
+         在 pointerup 时判断用户是“点击”还是“拖动”。
+    ======================================================== -->
+
+    <a-camera
+      id="camera"
+      position="0 0 0"
+      look-controls="enabled: false">
+    </a-camera>
+
+
+    <!-- Image Target -->
+    <a-entity
+      id="target"
+      mindar-image-target="targetIndex: 0">
+
+
+      <!-- =====================================================
+           MODEL ROOT：模型总控制节点
+
+           position
+           = 模型整体位置
+
+           scale
+           = 模型整体大小
+      ====================================================== -->
+
+      <a-entity
+        id="modelRoot"
+        position="0 0 0.1"
+        scale="1.5 1.5 1.5">
+
+
+        <!-- ===================================================
+             SPIN ROOT：旋转控制节点
+
+             讲解阶段：
+             自动旋转
+
+             开始探索后：
+             用户手动旋转
+        ==================================================== -->
+
+        <a-entity
+          id="spinRoot"
+          animation="
+            property: rotation;
+            from: 0 0 0;
+            to: 0 360 0;
+            loop: true;
+            dur: 10000;
+            easing: linear">
+
+
+          <!-- 3D MODEL｜3D 文物 -->
+          <a-gltf-model
+            src="./yuanjiaolong.glb"
+            position="0 0 0"
+            rotation="0 0 0">
+          </a-gltf-model>
+
+
+          <!-- =================================================
+               动物纹样探索点
+
+               现在只保留 2 个：
+               1. 颈盾
+               2. 喙
+              
+
+               每一个 Hotspot 有两层：
+
+               小黄球：
+               用户看到的位置提示。
+
+               大透明球：
+               真正的点击区域。
+               它比黄色圆点大很多，更容易点击。
+
+               IMPORTANT：
+               position="X Y Z"
+               模型已居中归一化，坐标与新 glb 配对，勿与旧 glb 混用。
+          ================================================== -->
+
+          <a-entity
+            id="hotspotRoot"
+            visible="false">
+
+
+            <!-- =================================================
+                 1. 颈盾
+            ================================================== -->
+
+            <a-entity
+              class="hotspot"
+              position="-0.4055 0.1103 -0.0065">
+
+              <!-- 可见黄色标记 -->
+              <a-sphere
+                radius="0.009"
+                material="
+                  color: #FFD54F;
+                  shader: flat;
+                  opacity: 0.35;
+                  transparent: true">
+              </a-sphere>
+
+              <!--
+                   真正的点击区域。
+
+                   radius="0.035"
+                   比可见黄点 0.009 大很多。
+              -->
+              <a-sphere
+                class="hotspot-hit"
+                radius="0.035"
+                material="
+                  color: #FFFFFF;
+                  opacity: 0.001;
+                  transparent: true;
+                  depthWrite: false"
+                data-name="颈盾"
+                data-info="它没有真正的角，但头后部有一块发达而中空的颈盾；颈盾的形态在个体之间、年龄之间差别很大——幼体的颈盾短而平，成体则明显加长、加高。">
+              </a-sphere>
+
+            </a-entity>
+
+
+            <!-- =================================================
+                 2. 喙
+            ================================================== -->
+
+            <a-entity
+              class="hotspot"
+              position="-0.5125 -0.0323 0.0545">
+
+              <a-sphere
+                radius="0.009"
+                material="
+                  color: #FFD54F;
+                  shader: flat;
+                  opacity: 0.35;
+                  transparent: true">
+              </a-sphere>
+
+              <a-sphere
+                class="hotspot-hit"
+                radius="0.035"
+                material="
+                  color: #FFFFFF;
+                  opacity: 0.001;
+                  transparent: true;
+                  depthWrite: false"
+                data-name="喙"
+                data-info="嘴前端是锐利的鹦鹉喙，颌部肌肉强壮，能咬断坚硬的植物。">
+              </a-sphere>
+
+            </a-entity>
+
+            </a-entity>
+
+
+          </a-entity>
+          <!-- END hotspotRoot -->
+
+
+        </a-entity>
+        <!-- END spinRoot -->
+
+
+      </a-entity>
+      <!-- END modelRoot -->
+
+
+    </a-entity>
+    <!-- END target -->
+
+
+  </a-scene>
+
+
+  <script>
+
+    /* =========================================================
+       1. 找到网页元素
+    ========================================================= */
+
+    const scene =
+      document.querySelector("#scene");
+
+    const startScreen =
+      document.querySelector("#startScreen");
+
+    const startButton =
+      document.querySelector("#startButton");
+
+    const target =
+      document.querySelector("#target");
+
+    const bgMusic =
+      document.querySelector("#bgMusic");
+
+    const narration =
+      document.querySelector("#narration");
+
+    const infoPanel =
+      document.querySelector("#infoPanel");
+
+    const explorePrompt =
+      document.querySelector("#explorePrompt");
+
+    const exploreButton =
+      document.querySelector("#exploreButton");
+
+    const modelRoot =
+      document.querySelector("#modelRoot");
+
+    const spinRoot =
+      document.querySelector("#spinRoot");
+
+    const hotspotRoot =
+      document.querySelector("#hotspotRoot");
+
+    const hotspotInfo =
+      document.querySelector("#hotspotInfo");
+
+    const hotspotTitle =
+      document.querySelector("#hotspotTitle");
+
+    const hotspotText =
+      document.querySelector("#hotspotText");
+
+    const hotspotHits =
+      document.querySelectorAll(".hotspot-hit");
+
+    const camera =
+      document.querySelector("#camera");
+
+
+    /* =========================================================
+       2. 音量
+    ========================================================= */
+
+    bgMusic.volume = 0.8;
+
+    narration.volume = 1.0;
+
+
+    /* =========================================================
+       3. 体验状态
+    ========================================================= */
+
+    let experienceStarted = false;
+
+    let targetVisible = false;
+
+    let narrationFinished = false;
+
+    let exploring = false;
+
+
+    /* =========================================================
+       4. 开始体验
+    ========================================================= */
+
+    startButton.addEventListener(
+      "click",
+      async () => {
+
+        try {
+
+          /* 解锁背景音乐 */
+
+          bgMusic.muted = true;
+
+          await bgMusic.play();
+
+          bgMusic.pause();
+
+          bgMusic.currentTime = 0;
+
+          bgMusic.muted = false;
+
+
+          /* 解锁中文讲解 */
+
+          narration.muted = true;
+
+          await narration.play();
+
+          narration.pause();
+
+          narration.currentTime = 0;
+
+          narration.muted = false;
+
+        }
+
+        catch (error) {
+
+          console.log(
+            "Audio unlock:",
+            error
+          );
+
+        }
+
+
+        experienceStarted = true;
+
+
+        startScreen.style.display =
+          "none";
+
+
+        /*
+           如果用户点击开始按钮的时候，
+           Target 已经在镜头中：
+           立即播放音频。
+        */
+
+        if (targetVisible) {
+
+          playAudio();
+
+          infoPanel.style.display =
+            "block";
+
+        }
+
+      }
+    );
+
+
+    /* =========================================================
+       5. 播放音频
+    ========================================================= */
+
+    function playAudio() {
+
+      if (!experienceStarted) {
+        return;
+      }
+
+
+      /* 背景音乐 */
+
+      bgMusic.play().catch(
+        (error) => {
+
+          console.log(
+            "Background music error:",
+            error
+          );
+
+        }
+      );
+
+
+      /* 中文讲解 */
+
+      if (!narrationFinished) {
+
+        narration.play().catch(
+          (error) => {
+
+            console.log(
+              "Narration error:",
+              error
+            );
+
+          }
+        );
+
+      }
+
+    }
+
+
+    /* =========================================================
+       6. 识别到 Target
+    ========================================================= */
+
+    target.addEventListener(
+      "targetFound",
+      () => {
+
+        console.log(
+          "🎯 TARGET FOUND"
+        );
+
+
+        targetVisible = true;
+
+
+        playAudio();
+
+
+        /* 显示 Museum Label */
+
+        if (experienceStarted) {
+
+          infoPanel.style.display =
+            "block";
+
+        }
+
+
+        /*
+           如果讲解已经结束，
+           但用户还没有点击“开始探索”，
+           则显示 Explore Prompt。
+        */
+
+        if (
+          narrationFinished &&
+          !exploring
+        ) {
+
+          explorePrompt.style.display =
+            "block";
+
+        }
+
+
+        /*
+           如果已经进入探索模式，
+           Target 重新出现时，
+           3 个 Hotspots 重新出现。
+        */
+
+        if (exploring) {
+
+          hotspotRoot.setAttribute(
+            "visible",
+            true
+          );
+
+        }
+
+      }
+    );
+
+
+    /* =========================================================
+       7. Target 离开镜头
+    ========================================================= */
+
+    target.addEventListener(
+      "targetLost",
+      () => {
+
+        console.log(
+          "TARGET LOST"
+        );
+
+
+        targetVisible = false;
+
+
+        /* 暂停音频 */
+
+        bgMusic.pause();
+
+        narration.pause();
+
+
+        /* 隐藏 UI */
+
+        infoPanel.style.display =
+          "none";
+
+        explorePrompt.style.display =
+          "none";
+
+        hotspotInfo.style.display =
+          "none";
+
+
+        /* 隐藏动物纹 Hotspots */
+
+        hotspotRoot.setAttribute(
+          "visible",
+          false
+        );
+
+      }
+    );
+
+
+    /* =========================================================
+       8. 中文讲解结束
+    ========================================================= */
+
+    narration.addEventListener(
+      "ended",
+      () => {
+
+        narrationFinished = true;
+
+
+        console.log(
+          "🔊 Narration Finished"
+        );
+
+
+        if (
+          targetVisible &&
+          !exploring
+        ) {
+
+          explorePrompt.style.display =
+            "block";
+
+        }
+
+      }
+    );
+
+
+    /* =========================================================
+       9. 开始探索
+
+       点击按钮：
+       ↓
+       停止自动旋转
+       ↓
+       显示 3 个动物纹 Hotspots
+       ↓
+       开启手动旋转 / 缩放 / 点击
+    ========================================================= */
+
+    exploreButton.addEventListener(
+      "click",
+      () => {
+
+        exploring = true;
+
+
+        explorePrompt.style.display =
+          "none";
+
+
+        /* 停止自动旋转 */
+
+        stopAutoRotation();
+
+
+        /* 显示 3 个动物纹 Hotspots */
+
+        hotspotRoot.setAttribute(
+          "visible",
+          true
+        );
+
+
+        console.log(
+          "🔎 Exploration Started"
+        );
+
+      }
+    );
+
+
+    /* =========================================================
+       10. 显示纹样说明
+    ========================================================= */
+
+    function showHotspotInfo(
+      hotspot
+    ) {
+
+      if (!hotspot) {
+        return;
+      }
+
+
+      const name =
+        hotspot.dataset.name;
+
+      const info =
+        hotspot.dataset.info;
+
+
+      hotspotTitle.textContent =
+        name;
+
+      hotspotText.textContent =
+        info;
+
+      hotspotInfo.style.display =
+        "block";
+
+
+      console.log(
+        "✅ HOTSPOT CLICKED:",
+        name
+      );
+
+    }
+
+
+    /* =========================================================
+       11. MANUAL THREE.JS HIT TEST
+           手动检测黄色 Hotspot 点击
+
+       为什么不用之前的 A-Frame click？
+
+       因为本项目同时有：
+       - Pointer Drag
+       - Pinch Zoom
+       - Hotspot Tap
+
+       我们直接在 Pointer Up 时：
+       1. 判断是不是“轻点”
+       2. 从用户点击位置发出 THREE.Raycaster
+       3. 检查是否碰到 3 个透明点击球
+
+       这样旋转和点击使用同一套 Pointer Events，
+       更容易控制冲突。
+    ========================================================= */
+
+    const hotspotRaycaster =
+      new THREE.Raycaster();
+
+    const pointerNDC =
+      new THREE.Vector2();
+
+
+    function hitTestHotspot(
+      clientX,
+      clientY
+    ) {
+
+      if (
+        !exploring ||
+        !targetVisible
+      ) {
+        return;
+      }
+
+
+      const canvas =
+        scene.canvas;
+
+      const threeCamera =
+        camera.getObject3D(
+          "camera"
+        );
+
+
+      if (
+        !canvas ||
+        !threeCamera
+      ) {
+        return;
+      }
+
+
+      const rect =
+        canvas.getBoundingClientRect();
+
+
+      /*
+         浏览器坐标
+         ↓
+         THREE.js Normalized Device Coordinates
+         范围：-1 到 +1
+      */
+
+      pointerNDC.x =
+        (
+          (
+            clientX -
+            rect.left
+          ) /
+          rect.width
+        ) * 2 - 1;
+
+
+      pointerNDC.y =
+        -(
+          (
+            clientY -
+            rect.top
+          ) /
+          rect.height
+        ) * 2 + 1;
+
+
+      hotspotRaycaster.setFromCamera(
+        pointerNDC,
+        threeCamera
+      );
+
+
+      /*
+         取出 3 个透明 Hit Area 中真正的 Mesh。
+
+         ownerMap：
+         用来记录某个 THREE.Mesh
+         属于哪一个 <a-sphere> Hotspot。
+      */
+
+      const hitMeshes = [];
+
+      const ownerMap =
+        new Map();
+
+
+      hotspotHits.forEach(
+        (hotspot) => {
+
+          hotspot.object3D.traverse(
+            (object) => {
+
+              if (object.isMesh) {
+
+                hitMeshes.push(
+                  object
+                );
+
+                ownerMap.set(
+                  object.uuid,
+                  hotspot
+                );
+
+              }
+
+            }
+          );
+
+        }
+      );
+
+
+      const intersections =
+        hotspotRaycaster.intersectObjects(
+          hitMeshes,
+          false
+        );
+
+
+      if (
+        intersections.length === 0
+      ) {
+
+        console.log(
+          "Tap: no hotspot"
+        );
+
+        return;
+      }
+
+
+      const clickedObject =
+        intersections[0].object;
+
+
+      const hotspot =
+        ownerMap.get(
+          clickedObject.uuid
+        );
+
+
+      showHotspotInfo(
+        hotspot
+      );
+
+    }
+
+
+    /* =========================================================
+       12. MODEL SCALE / ROTATION STATE
+    ========================================================= */
+
+    let currentScale =
+      modelRoot.getAttribute(
+        "scale"
+      ).x;
+
+
+    let currentRotationY = 0;
+
+
+    const initialScale =
+      currentScale;
+
+
+    const minScale =
+      initialScale * 0.5;
+
+
+    const maxScale =
+      initialScale * 7.0;
+
+
+    /* ---------------------------------------------------------
+       停止自动旋转
+    --------------------------------------------------------- */
+
+    function stopAutoRotation() {
+
+      /*
+         先读取模型动画当前角度，
+         防止停止后跳回 0°。
+      */
+
+      currentRotationY =
+        THREE.MathUtils.radToDeg(
+          spinRoot.object3D.rotation.y
+        );
+
+
+      spinRoot.removeAttribute(
+        "animation"
+      );
+
+
+      spinRoot.setAttribute(
+        "rotation",
+        `0 ${currentRotationY} 0`
+      );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       设置模型大小
+    --------------------------------------------------------- */
+
+    function setModelScale(
+      scale
+    ) {
+
+      currentScale =
+        Math.max(
+          minScale,
+          Math.min(
+            maxScale,
+            scale
+          )
+        );
+
+
+      /*
+         三个数字保持相同，
+         防止模型变形。
+      */
+
+      modelRoot.setAttribute(
+        "scale",
+        `${currentScale} ${currentScale} ${currentScale}`
+      );
+
+    }
+
+
+    /* =========================================================
+       13. POINTER EVENTS：鼠标 + 手机触摸
+
+       Desktop：
+       Mouse Drag  = Rotate
+       Mouse Wheel = Zoom
+       Mouse Click = Hotspot
+
+       Mobile：
+       One Finger Drag = Rotate
+       Two Finger Pinch = Zoom
+       Tap = Hotspot
+
+       关键：
+       TAP_THRESHOLD 用来区分
+       “点击”和“拖动”。
+    ========================================================= */
+
+    const activePointers =
+      new Map();
+
+
+    const pointerStarts =
+      new Map();
+
+
+    let lastSingleX =
+      null;
+
+
+    let pinchStartDistance =
+      null;
+
+
+    let pinchStartScale =
+      currentScale;
+
+
+    let multiTouchUsed =
+      false;
+
+
+    /*
+       如果手指/鼠标移动超过 8 px，
+       就认为是 Drag，而不是 Click。
+    */
+
+    const TAP_THRESHOLD =
+      8;
+
+
+    /* ---------------------------------------------------------
+       计算两个触点之间的距离
+    --------------------------------------------------------- */
+
+    function getPointerDistance() {
+
+      const points =
+        Array.from(
+          activePointers.values()
+        );
+
+
+      if (
+        points.length < 2
+      ) {
+        return 0;
+      }
+
+
+      const dx =
+        points[0].x -
+        points[1].x;
+
+
+      const dy =
+        points[0].y -
+        points[1].y;
+
+
+      return Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       POINTER DOWN
+    --------------------------------------------------------- */
+
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+
+        if (!exploring) {
+          return;
+        }
+
+
+        /*
+           点击网页 UI 时，
+           不控制 3D 模型。
+        */
+
+        if (
+          event.target.closest &&
+          event.target.closest(
+            "#startScreen, #explorePrompt, #infoPanel, #hotspotInfo"
+          )
+        ) {
+          return;
+        }
+
+
+        activePointers.set(
+          event.pointerId,
+          {
+            x: event.clientX,
+            y: event.clientY
+          }
+        );
+
+
+        pointerStarts.set(
+          event.pointerId,
+          {
+            x: event.clientX,
+            y: event.clientY,
+            moved: false
+          }
+        );
+
+
+        /* 单触点 */
+
+        if (
+          activePointers.size === 1
+        ) {
+
+          lastSingleX =
+            event.clientX;
+
+          multiTouchUsed =
+            false;
+
+        }
+
+
+        /* 两个触点 */
+
+        if (
+          activePointers.size === 2
+        ) {
+
+          multiTouchUsed =
+            true;
+
+
+          /*
+             一旦使用双指，
+             本轮手势不再当作 Hotspot Click。
+          */
+
+          pointerStarts.forEach(
+            (start) => {
+
+              start.moved =
+                true;
+
+            }
+          );
+
+
+          pinchStartDistance =
+            getPointerDistance();
+
+
+          pinchStartScale =
+            currentScale;
+
+
+          lastSingleX =
+            null;
+
+        }
+
+      }
+    );
+
+
+    /* ---------------------------------------------------------
+       POINTER MOVE
+    --------------------------------------------------------- */
+
+    document.addEventListener(
+      "pointermove",
+      (event) => {
+
+        if (
+          !exploring ||
+          !activePointers.has(
+            event.pointerId
+          )
+        ) {
+          return;
+        }
+
+
+        const start =
+          pointerStarts.get(
+            event.pointerId
+          );
+
+
+        /*
+           判断是否已经成为拖动操作。
+        */
+
+        if (start) {
+
+          const totalDx =
+            event.clientX -
+            start.x;
+
+
+          const totalDy =
+            event.clientY -
+            start.y;
+
+
+          if (
+            Math.hypot(
+              totalDx,
+              totalDy
+            ) >
+            TAP_THRESHOLD
+          ) {
+
+            start.moved =
+              true;
+
+          }
+
+        }
+
+
+        activePointers.set(
+          event.pointerId,
+          {
+            x: event.clientX,
+            y: event.clientY
+          }
+        );
+
+
+        /* ===============================================
+           ONE POINTER：单指 / 鼠标拖动旋转
+        =============================================== */
+
+        if (
+          activePointers.size === 1 &&
+          lastSingleX !== null
+        ) {
+
+          const dx =
+            event.clientX -
+            lastSingleX;
+
+
+          /*
+             0.4 = 旋转灵敏度
+          */
+
+          currentRotationY +=
+            dx * 0.4;
+
+
+          spinRoot.setAttribute(
+            "rotation",
+            `0 ${currentRotationY} 0`
+          );
+
+
+          lastSingleX =
+            event.clientX;
+
+        }
+
+
+        /* ===============================================
+           TWO POINTERS：双指捏合缩放
+        =============================================== */
+
+        if (
+          activePointers.size === 2 &&
+          pinchStartDistance
+        ) {
+
+          event.preventDefault();
+
+
+          const newDistance =
+            getPointerDistance();
+
+
+          const ratio =
+            newDistance /
+            pinchStartDistance;
+
+
+          setModelScale(
+            pinchStartScale *
+            ratio
+          );
+
+        }
+
+      },
+      {
+        passive: false
+      }
+    );
+
+
+    /* ---------------------------------------------------------
+       POINTER UP
+
+       这是本版最重要的修改：
+
+       如果 Pointer Down → Pointer Up
+       之间几乎没有移动，
+       就认为用户是在“点击”，
+       然后运行 Hotspot Hit Test。
+    --------------------------------------------------------- */
+
+    function endPointer(
+      event
+    ) {
+
+      const start =
+        pointerStarts.get(
+          event.pointerId
+        );
+
+
+      const isSinglePointer =
+        activePointers.size === 1;
+
+
+      const isTap =
+        start &&
+        !start.moved &&
+        !multiTouchUsed &&
+        isSinglePointer;
+
+
+      /*
+         在删除 Pointer 状态之前，
+         先判断是否需要执行 Hotspot Click。
+      */
+
+      if (isTap) {
+
+        hitTestHotspot(
+          event.clientX,
+          event.clientY
+        );
+
+      }
+
+
+      activePointers.delete(
+        event.pointerId
+      );
+
+
+      pointerStarts.delete(
+        event.pointerId
+      );
+
+
+      if (
+        activePointers.size === 1
+      ) {
+
+        const remainingPointer =
+          Array.from(
+            activePointers.values()
+          )[0];
+
+
+        lastSingleX =
+          remainingPointer.x;
+
+      }
+
+      else {
+
+        lastSingleX =
+          null;
+
+      }
+
+
+      if (
+        activePointers.size < 2
+      ) {
+
+        pinchStartDistance =
+          null;
+
+      }
+
+
+      if (
+        activePointers.size === 0
+      ) {
+
+        multiTouchUsed =
+          false;
+
+      }
+
+    }
+
+
+    document.addEventListener(
+      "pointerup",
+      endPointer
+    );
+
+
+    document.addEventListener(
+      "pointercancel",
+      endPointer
+    );
+
+
+    /* =========================================================
+       14. 电脑滚轮缩放
+    ========================================================= */
+
+    document.addEventListener(
+      "wheel",
+      (event) => {
+
+        if (!exploring) {
+          return;
+        }
+
+
+        event.preventDefault();
+
+
+        if (
+          event.deltaY < 0
+        ) {
+
+          /* 滚轮向上：放大 */
+
+          setModelScale(
+            currentScale * 1.10
+          );
+
+        }
+
+        else {
+
+          /* 滚轮向下：缩小 */
+
+          setModelScale(
+            currentScale * 0.90
+          );
+
+        }
+
+      },
+      {
+        passive: false
+      }
+    );
+
+  </script>
+
+</body>
+
+</html>
